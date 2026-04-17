@@ -482,6 +482,16 @@ wait_for_handshake() {
     info "正在等待客户端连接，直到检测到握手成功为止..."
   fi
 
+  echo
+  echo "  手机端操作步骤："
+  echo "  1. 打开手机上的 WireGuard 软件"
+  echo "  2. 点击右上角「+」"
+  echo "  3. 选择「扫描二维码」"
+  echo "  4. 扫描当前终端里的二维码"
+  echo "  5. 随便输入一个名称保存配置"
+  echo "  6. 回到配置列表，打开这个名称右侧的开关"
+  echo "  7. 开关变成已启用后，才算真正握手成功"
+
   while :; do
     if wg show "${WG_INTERFACE}" latest-handshakes | awk -v key="${peer_pubkey}" '
       $1==key && $2 > 0 { found=1 }
@@ -735,6 +745,34 @@ EOF
   echo "${guide}"
 }
 
+print_guide_summary() {
+  local public_ip="$1"
+  local port="$2"
+  local prefix="$3"
+
+  echo
+  echo "╔══════════════════════════════════════════════╗"
+  echo "║          联机说明                            ║"
+  echo "╚══════════════════════════════════════════════╝"
+  echo
+  echo "  1. 打开 WireGuard 客户端"
+  echo "  2. 扫描上面的二维码，或导入 ${CLIENT_DIR}/ 下的 .conf 文件"
+  echo "  3. 确认所有人的 WireGuard 都显示为已连接"
+  echo "  4. 一个人进入《杀戮尖塔》"
+  echo "  5. 选择：联机 → 局域网游戏 → 创建房间"
+  echo "  6. 其他人选择：联机 → 局域网游戏 → 输入房主 IP"
+  echo
+  echo "  服务器信息："
+  echo "    公网地址: ${public_ip}:${port}"
+  echo "    VPN 网段: ${prefix}.0/24"
+  echo
+  echo "  如果连不上，请优先检查："
+  echo "    - WireGuard 是否已连接"
+  echo "    - 云服务器安全组是否放行 UDP ${port}"
+  echo "    - 是否使用了正确的房主 VPN IP"
+  echo
+}
+
 # ── 部署完成提示 ──────────────────────────────────────────
 
 show_summary() {
@@ -930,6 +968,7 @@ setup_flow() {
   local guide_path
   guide_path="$(generate_guide "${public_ip}" "${WG_PORT}" "${prefix}")"
   ok "联机说明已保存到 ${guide_path}"
+  print_guide_summary "${public_ip}" "${WG_PORT}" "${prefix}"
 
   info "安装本地入口命令..."
   install_entrypoint
