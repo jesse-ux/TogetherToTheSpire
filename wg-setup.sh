@@ -615,6 +615,51 @@ check_handshakes() {
   fi
 }
 
+wait_for_all_handshakes() {
+  local listen_port="$1"
+  local timeout="${2:-90}"
+  shift 2
+  local -a peer_pubkeys=("$@")
+  local total="${#peer_pubkeys[@]}"
+  local interval=2
+  local elapsed=0
+
+  echo
+  info "正在等待所有玩家连接 WireGuard..."
+  echo "  （最长等待 ${timeout} 秒，期间会持续检测）"
+
+  while (( elapsed < timeout )); do
+    local connected=0
+    local key
+    for key in "${peer_pubkeys[@]}"; do
+      if wg show "${WG_INTERFACE}" latest-handshakes | awk -v k="${key}" '
+        $1==k && $2 > 0 { found=1 }
+        END { exit(found ? 0 : 1) }
+      '; then
+        connected=$((connected + 1))
+      fi
+    done
+
+    if [[ "${connected}" -eq "${total}" ]]; then
+      echo
+      ok "全部 ${total} 位玩家已连接"
+      return 0
+    fi
+
+    printf "\r  当前连接: %d/%d，剩余 %ds" "${connected}" "${total}" "$((timeout - elapsed))"
+    sleep "${interval}"
+    elapsed=$((elapsed + interval))
+  done
+
+  echo
+  warn "等待超时，尚未检测到全部玩家连接"
+  echo "  请确认："
+  echo "  1. 玩家是否已扫码导入并打开 WireGuard"
+  echo "  2. 云服务器安全组是否放行 UDP ${listen_port}"
+  echo "  3. 客户端网络是否正常"
+  return 1
+}
+
 # ── 联机说明 ──────────────────────────────────────────────
 
 generate_guide() {
@@ -861,10 +906,10 @@ setup_flow() {
     fi
   done
 
-  echo
-  info "等待朋友们连接 WireGuard..."
-  echo "  （最长等待 90 秒，连接成功会自动检测）"
-  sleep 5
+  if ! wait_for_all_handshakes "${WG_PORT}" 90 "${peer_pubkeys[@]}"; then
+    warn "本次未等到全部玩家上线，可以稍后用 status 再查看"
+  fi
+
   check_handshakes "${WG_PORT}" "${peer_pubkeys[@]}"
 
   info "生成联机说明..."
