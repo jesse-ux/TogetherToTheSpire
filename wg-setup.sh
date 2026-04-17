@@ -84,15 +84,41 @@ install_packages() {
       apt install -y -qq wireguard qrencode curl iptables
       ;;
     dnf)
+      configure_epel_repo
       if ! command -v dnf >/dev/null 2>&1 && command -v yum >/dev/null 2>&1; then
-        yum install -y epel-release
+        yum makecache -y --refresh
         yum install -y wireguard-tools qrencode curl iptables
       else
-        dnf install -y epel-release
+        dnf makecache -y --refresh
         dnf install -y wireguard-tools qrencode curl iptables
       fi
       ;;
   esac
+}
+
+configure_epel_repo() {
+  local repo_file="/etc/yum.repos.d/epel.repo"
+
+  require_cmd rpm
+  rpm --import https://mirrors.aliyun.com/epel/RPM-GPG-KEY-EPEL-8 >/dev/null 2>&1 || true
+
+  cat > "${repo_file}" <<'EOF'
+[epel]
+name=Extra Packages for Enterprise Linux $releasever - $basearch
+baseurl=https://mirrors.aliyun.com/epel/$releasever/Everything/$basearch/
+enabled=1
+gpgcheck=1
+gpgkey=https://mirrors.aliyun.com/epel/RPM-GPG-KEY-EPEL-8
+skip_if_unavailable=1
+
+[epel-modular]
+name=Extra Packages for Enterprise Linux Modular $releasever - $basearch
+baseurl=https://mirrors.aliyun.com/epel/$releasever/Modular/$basearch/
+enabled=1
+gpgcheck=1
+gpgkey=https://mirrors.aliyun.com/epel/RPM-GPG-KEY-EPEL-8
+skip_if_unavailable=1
+EOF
 }
 
 # ── 网络配置 ──────────────────────────────────────────────
