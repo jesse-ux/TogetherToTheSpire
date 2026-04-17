@@ -199,12 +199,12 @@ prompt_listen_port() {
   local port_input port_value
 
   echo
-  echo "  请设置 WireGuard 监听端口"
-  echo "  允许范围: 1024-65535"
-  echo "  请输入你自己的端口，不要直接回车"
+  paint "${GOLD}" "  请手动输入 WireGuard 监听端口"
+  paint "${CYAN}" "  端口范围: 1024-65535"
+  paint "${ORANGE}" "  不能直接回车，必须输入一个端口号"
 
   while true; do
-    read -r -p "  端口号 > " port_input </dev/tty
+    read -r -p "  请输入端口号 > " port_input </dev/tty
 
     if [[ -z "${port_input}" ]]; then
       warn "端口不能为空"
