@@ -713,10 +713,11 @@ generate_guide() {
 
 一、WireGuard 客户端下载
 
-  Windows:  https://www.wireguard.com/postinstall/
-  macOS:    在 App Store 搜索 WireGuard
-  Android:  在 Play 商店或应用市场搜索 WireGuard
-  iOS:      在 App Store 搜索 WireGuard
+  Windows:  Windows 10 / 11 / Server 2016 / 2019 / 2022 / 2025
+            v0.6.1 - Browse MSIs
+  macOS:    App Store - v1.0.16
+  Android:  将 APK 放到 assets/android/ 目录后再分发
+  iOS:      App Store - v1.0.16
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -755,8 +756,6 @@ print_guide_summary() {
   echo "╔══════════════════════════════════════════════╗"
   echo "║          联机说明（直接照着做）              ║"
   echo "╚══════════════════════════════════════════════╝"
-  echo
-  echo "  这段不用去找文件，直接照着做就行："
   echo
   echo "  1. 打开 WireGuard 客户端"
   echo "  2. 扫描上面的二维码，或导入 ${CLIENT_DIR}/ 下的 .conf 文件"
@@ -1006,7 +1005,6 @@ setup_flow() {
   echo "╚══════════════════════════════════════════════╝"
   echo
   echo "  所有配置文件在: ${CLIENT_DIR}/"
-  echo "  联机说明在:     ${guide_path}"
   echo
   echo "  后续管理命令: sudo ./wg-setup.sh [setup|add-peer|remove-peer|status|remove-env]"
   echo "  或者直接使用: sudo together [add-peer|remove-peer|status|remove-env]"

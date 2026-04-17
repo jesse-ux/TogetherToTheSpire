@@ -90,6 +90,13 @@ sudo together status
 
 部署完成后，脚本会直接在终端打印一份简化联机说明，方便小白直接照着做，同时也会把完整说明保存到 `~/wg-clients/联机说明.txt`。
 
+## 客户端来源
+
+- Windows: Windows 10 / 11 / Server 2016 / 2019 / 2022 / 2025，`v0.6.1`，Browse MSIs
+- macOS: App Store，`v1.0.16`
+- iOS: App Store，`v1.0.16`
+- Android: 你可以把 APK 放到仓库的 `assets/android/` 目录里，再按自己的方式分发
+
 ## 防火墙和安全组
 
 脚本会尝试处理本机防火墙：
