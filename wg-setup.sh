@@ -202,13 +202,13 @@ prompt_listen_port() {
   paint "${GOLD}" "  请手动输入 WireGuard 监听端口"
   paint "${CYAN}" "  端口范围: 1024-65535"
   paint "${ORANGE}" "  不能直接回车，必须输入一个端口号"
+  paint "${WHITE}" "  示例: 51820、51821、60000"
   echo
   echo "  提示：请先确认你要使用的端口没有被占用，然后再输入下面这一行。"
   echo
 
   while true; do
-    echo "  端口号输入框上方的范围说明：1024-65535"
-    read -r -p "  请输入端口号 > " port_input </dev/tty
+    read -r -p "  请输入端口号（1024-65535）> " port_input </dev/tty
     echo
 
     if [[ -z "${port_input}" ]]; then
