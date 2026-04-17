@@ -186,6 +186,49 @@ detect_default_nic() {
   ip route | awk '/default/ {print $5; exit}'
 }
 
+port_is_available() {
+  local port="$1"
+  if command -v ss >/dev/null 2>&1; then
+    ! ss -lntu 2>/dev/null | awk -v target=":${port}" '$5 ~ target { found=1 } END { exit(found ? 0 : 1) }'
+  else
+    return 0
+  fi
+}
+
+prompt_listen_port() {
+  local port_input port_value
+
+  echo
+  echo "  请设置 WireGuard 监听端口"
+  echo "  允许范围: 1024-65535"
+  echo "  直接回车使用默认端口: ${WG_PORT}"
+
+  while true; do
+    read -r -p "  端口号 > " port_input </dev/tty
+    port_input="${port_input:-${WG_PORT}}"
+
+    if [[ ! "${port_input}" =~ ^[0-9]+$ ]]; then
+      warn "请输入数字端口"
+      continue
+    fi
+
+    if (( port_input < 1024 || port_input > 65535 )); then
+      warn "端口必须在 1024-65535 之间"
+      continue
+    fi
+
+    if ! port_is_available "${port_input}"; then
+      warn "端口 ${port_input} 当前已被占用，请换一个"
+      continue
+    fi
+
+    port_value="${port_input}"
+    break
+  done
+
+  echo "${port_value}"
+}
+
 check_wireguard_kernel_support() {
   require_cmd modprobe
 
@@ -702,6 +745,10 @@ setup_flow() {
   info "开启 IP 转发..."
   enable_ip_forward
   ok "IP 转发已开启"
+
+  info "选择 WireGuard 监听端口..."
+  WG_PORT="$(prompt_listen_port)"
+  ok "监听端口: ${WG_PORT}"
 
   info "生成服务端密钥..."
   generate_server_keys
