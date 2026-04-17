@@ -521,9 +521,9 @@ wait_for_handshake() {
     sleep "${interval}"
     elapsed=$((elapsed + interval))
     if [[ "${timeout}" -gt 0 ]]; then
-      echo "  等待中... ${elapsed}s/${timeout}s"
+      printf "\r\033[K  等待中... %ds/%ds" "${elapsed}" "${timeout}"
     else
-      echo "  等待中... ${elapsed}s"
+      printf "\r\033[K  等待中... %ds" "${elapsed}"
     fi
   done
 }
