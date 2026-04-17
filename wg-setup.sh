@@ -10,7 +10,7 @@ WG_INTERFACE="wg0"
 WG_DIR="/etc/wireguard"
 SYSCTL_FILE="/etc/sysctl.d/99-wireguard.conf"
 WG_ADDRESS="10.66.66.1/24"
-WG_PORT="51820"
+WG_PORT=""
 CLIENT_DIR="${HOME}/wg-clients"
 
 # ── 工具函数 ──────────────────────────────────────────────
@@ -201,11 +201,15 @@ prompt_listen_port() {
   echo
   echo "  请设置 WireGuard 监听端口"
   echo "  允许范围: 1024-65535"
-  echo "  直接回车使用默认端口: ${WG_PORT}"
+  echo "  请输入你自己的端口，不要直接回车"
 
   while true; do
     read -r -p "  端口号 > " port_input </dev/tty
-    port_input="${port_input:-${WG_PORT}}"
+
+    if [[ -z "${port_input}" ]]; then
+      warn "端口不能为空"
+      continue
+    fi
 
     if [[ ! "${port_input}" =~ ^[0-9]+$ ]]; then
       warn "请输入数字端口"
@@ -571,6 +575,8 @@ show_peer_qr() {
 # ── 握手检测 ──────────────────────────────────────────────
 
 check_handshakes() {
+  local listen_port="$1"
+  shift
   local -a peer_pubkeys=("$@")
   local found=0
   local total=${#peer_pubkeys[@]}
@@ -599,7 +605,7 @@ check_handshakes() {
     echo
     echo "  未连接的玩家请检查："
     echo "  1. 是否已扫码导入 WireGuard 并打开隧道"
-    echo "  2. 云服务器安全组是否放行 UDP ${WG_PORT}"
+    echo "  2. 云服务器安全组是否放行 UDP ${listen_port}"
     echo "  3. 手机/电脑网络是否正常"
   fi
 }
@@ -854,7 +860,7 @@ setup_flow() {
   info "等待朋友们连接 WireGuard..."
   echo "  （最长等待 90 秒，连接成功会自动检测）"
   sleep 5
-  check_handshakes "${peer_pubkeys[@]}"
+  check_handshakes "${WG_PORT}" "${peer_pubkeys[@]}"
 
   info "生成联机说明..."
   local guide_path
