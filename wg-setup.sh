@@ -198,36 +198,36 @@ port_is_available() {
 prompt_listen_port() {
   local port_input port_value
 
-  echo
-  paint "${GOLD}" "  请手动输入 WireGuard 监听端口"
-  paint "${CYAN}" "  端口范围: 1024-65535"
-  paint "${ORANGE}" "  不能直接回车，必须输入一个端口号"
-  paint "${WHITE}" "  示例: 51820、51821、60000"
-  echo
-  echo "  提示：请先确认你要使用的端口没有被占用，然后再输入下面这一行。"
-  echo
+  echo >/dev/tty
+  paint "${GOLD}" "  请手动输入 WireGuard 监听端口" >/dev/tty
+  paint "${CYAN}" "  端口范围: 1024-65535" >/dev/tty
+  paint "${ORANGE}" "  不能直接回车，必须输入一个端口号" >/dev/tty
+  paint "${WHITE}" "  示例: 51820、51821、60000" >/dev/tty
+  echo >/dev/tty
+  echo "  提示：请先确认你要使用的端口没有被占用，然后再输入下面这一行。" >/dev/tty
+  echo >/dev/tty
 
   while true; do
     read -r -p "  请输入端口号（1024-65535）> " port_input </dev/tty
-    echo
+    echo >/dev/tty
 
     if [[ -z "${port_input}" ]]; then
-      warn "端口不能为空"
+      warn "端口不能为空" >/dev/tty
       continue
     fi
 
     if [[ ! "${port_input}" =~ ^[0-9]+$ ]]; then
-      warn "请输入数字端口"
+      warn "请输入数字端口" >/dev/tty
       continue
     fi
 
     if (( port_input < 1024 || port_input > 65535 )); then
-      warn "端口必须在 1024-65535 之间"
+      warn "端口必须在 1024-65535 之间" >/dev/tty
       continue
     fi
 
     if ! port_is_available "${port_input}"; then
-      warn "端口 ${port_input} 当前已被占用，请换一个"
+      warn "端口 ${port_input} 当前已被占用，请换一个" >/dev/tty
       continue
     fi
 
@@ -458,7 +458,7 @@ get_listen_port() {
 
 show_qr_terminal() {
   local conf_file="$1"
-  echo
+  echo >/dev/tty
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo "  请使用 WireGuard 扫描下方二维码导入配置："
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -607,7 +607,7 @@ check_handshakes() {
     ok "全部 ${total} 位玩家已连接，可以开始联机了！"
   else
     warn "${found}/${total} 位玩家已连接"
-    echo
+    echo >/dev/tty
     echo "  未连接的玩家请检查："
     echo "  1. 是否已扫码导入 WireGuard 并打开隧道"
     echo "  2. 云服务器安全组是否放行 UDP ${listen_port}"
