@@ -563,7 +563,7 @@ setup_flow() {
     echo "    sudo wg-quick down ${WG_INTERFACE}"
     echo "    sudo rm -rf ${WG_DIR}"
     echo
-    read -r -p "  是否覆盖现有配置？(y/N) " confirm
+    read -r -p "  是否覆盖现有配置？(y/N) " confirm </dev/tty
     if [[ "${confirm}" != "y" && "${confirm}" != "Y" ]]; then
       info "已退出，现有配置未改动"
       exit 0
@@ -617,7 +617,7 @@ setup_flow() {
   echo "  几位朋友要一起联机？（输入 1-5 的数字）"
   local peer_count
   while true; do
-    read -r -p "  > " peer_count
+    read -r -p "  > " peer_count </dev/tty
     if [[ "${peer_count}" =~ ^[1-5]$ ]]; then
       break
     fi
@@ -642,12 +642,12 @@ setup_flow() {
     local default_name="${default_names[$i]:-player${idx}}"
     echo "  给玩家 ${idx} 取个名字（回车默认: ${default_name}）"
     local name
-    read -r -p "  > " name
+    read -r -p "  > " name </dev/tty
     name="${name:-${default_name}}"
 
     while peer_name_exists "${name}"; do
       warn "名字「${name}」已存在，请换一个"
-      read -r -p "  > " name
+      read -r -p "  > " name </dev/tty
       name="${name:-${default_name}}$((i+2))"
     done
 
@@ -677,7 +677,7 @@ setup_flow() {
 
     if (( i < peer_count - 1 )); then
       echo
-      read -r -p "  ${name} 扫码完成后按回车继续... " _
+      read -r -p "  ${name} 扫码完成后按回车继续... " _ </dev/tty
     fi
   done
 
@@ -846,7 +846,7 @@ add_peer_flow() {
   local wait_timeout="${2:-120}"
 
   if [[ -z "${peer_name}" ]]; then
-    read -r -p "请输入玩家名字: " peer_name
+    read -r -p "请输入玩家名字: " peer_name </dev/tty
   fi
 
   if [[ -z "${peer_name}" ]]; then
@@ -888,7 +888,7 @@ remove_peer_flow() {
 
   local peer_name="${1:-}"
   if [[ -z "${peer_name}" ]]; then
-    read -r -p "请输入要删除的玩家名字: " peer_name
+    read -r -p "请输入要删除的玩家名字: " peer_name </dev/tty
   fi
 
   if [[ -z "${peer_name}" ]]; then
@@ -902,7 +902,7 @@ remove_peer_flow() {
   fi
 
   warn "即将删除 peer「${peer_name}」"
-  read -r -p "确认删除请输入 yes: " confirm
+  read -r -p "确认删除请输入 yes: " confirm </dev/tty
   if [[ "${confirm}" != "yes" ]]; then
     info "已取消删除"
     exit 0
@@ -928,7 +928,7 @@ remove_env_flow() {
   warn "此操作会删除 WireGuard 服务端配置并停止服务"
   echo "  目标: ${WG_CONF}"
   echo "  目录: ${WG_DIR}"
-  read -r -p "确认删除请输入 DELETE: " confirm
+  read -r -p "确认删除请输入 DELETE: " confirm </dev/tty
   if [[ "${confirm}" != "DELETE" ]]; then
     info "已取消删除"
     exit 0
@@ -1042,7 +1042,7 @@ show_menu() {
 interactive_menu() {
   while true; do
     show_menu
-    read -r -p "请选择: " choice
+    read -r -p "请选择: " choice </dev/tty
     case "${choice}" in
       1) setup_flow ;;
       2)
@@ -1077,7 +1077,7 @@ interactive_menu() {
       *) warn "请输入 0-5 的数字" ;;
     esac
     echo
-    read -r -p "按回车返回菜单..." _
+    read -r -p "按回车返回菜单..." _ </dev/tty
   done
 }
 
