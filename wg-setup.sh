@@ -796,11 +796,15 @@ show_summary() {
   echo "    VPN 网段: ${prefix}.0/24"
   echo "    配置文件: ${WG_CONF}"
   echo
-  warn "  ⚠ 请确认云服务器安全组已放行以下端口："
+  paint "${GOLD}" "╔══════════════════════════════════════════════╗"
+  paint "${GOLD}" "║          安全组放行提示（必须）              ║"
+  paint "${GOLD}" "╚══════════════════════════════════════════════╝"
   echo
-  echo "    UDP ${port}（WireGuard 通信端口，必须放行）"
+  paint "${ORANGE}" "  ⚠ 请确认云服务器安全组已放行以下端口："
   echo
-  echo "  各云厂商操作路径："
+  paint "${WHITE}" "    UDP ${port}（WireGuard 通信端口，必须放行）"
+  echo
+  paint "${CYAN}" "  各云厂商操作路径："
   echo "    阿里云: 控制台 → 安全组 → 添加入方向规则 → UDP ${port}"
   echo "    腾讯云: 控制台 → 安全组 → 入站规则 → 添加 UDP ${port}"
   echo "    华为云: 安全组 → 入方向规则 → 添加 UDP ${port}"
