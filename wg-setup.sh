@@ -491,6 +491,7 @@ wait_for_handshake() {
   echo "  5. 随便输入一个名称保存配置"
   echo "  6. 回到配置列表，打开这个名称右侧的开关"
   echo "  7. 开关变成已启用后，才算真正握手成功"
+  echo "  8. 看到下面的“检测到客户端已连接”之后，才会继续往下走"
 
   while :; do
     if wg show "${WG_INTERFACE}" latest-handshakes | awk -v key="${peer_pubkey}" '
@@ -520,9 +521,9 @@ wait_for_handshake() {
     sleep "${interval}"
     elapsed=$((elapsed + interval))
     if [[ "${timeout}" -gt 0 ]]; then
-      printf "\r等待中... %ds/%ds" "${elapsed}" "${timeout}"
+      echo "  等待中... ${elapsed}s/${timeout}s"
     else
-      printf "\r等待中... %ds" "${elapsed}"
+      echo "  等待中... ${elapsed}s"
     fi
   done
 }
@@ -752,8 +753,10 @@ print_guide_summary() {
 
   echo
   echo "╔══════════════════════════════════════════════╗"
-  echo "║          联机说明                            ║"
+  echo "║          联机说明（直接照着做）              ║"
   echo "╚══════════════════════════════════════════════╝"
+  echo
+  echo "  这段不用去找文件，直接照着做就行："
   echo
   echo "  1. 打开 WireGuard 客户端"
   echo "  2. 扫描上面的二维码，或导入 ${CLIENT_DIR}/ 下的 .conf 文件"
