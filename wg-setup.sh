@@ -71,10 +71,17 @@ detect_os() {
       ;;
     *)
       error "不支持的系统: ${OS_NAME}"
-      echo "目前支持: Ubuntu/Debian/CentOS/Rocky/AlmaLinux" >&2
+      echo "目前支持: Ubuntu/Debian/Rocky/AlmaLinux" >&2
       exit 1
       ;;
   esac
+
+  if [[ "${OS_ID}" == "centos" && "${OS_VERSION%%.*}" == "8" ]]; then
+    error "当前版本暂不支持 CentOS 8"
+    echo "原因：CentOS 8 的 WireGuard 内核模块适配不稳定，后续会单独补 CentOS 8 支持。" >&2
+    echo "建议改用 Ubuntu/Debian/Rocky/AlmaLinux 后再运行脚本。" >&2
+    exit 1
+  fi
 }
 
 # ── 安装 ──────────────────────────────────────────────────
@@ -86,9 +93,6 @@ install_packages() {
       apt install -y -qq wireguard qrencode curl iptables
       ;;
     dnf)
-      if [[ "${OS_ID}" == "centos" && "${OS_VERSION%%.*}" == "8" ]]; then
-        configure_el8_mirrors
-      fi
       configure_epel_repo
       if ! command -v dnf >/dev/null 2>&1 && command -v yum >/dev/null 2>&1; then
         yum makecache -y --refresh

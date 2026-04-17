@@ -54,10 +54,11 @@
 ### 2. 主流发行版支持
 
 - [ ] 检测 Ubuntu / Debian
-- [ ] 检测 CentOS / Rocky / AlmaLinux
+- [ ] 检测 Rocky / AlmaLinux
 - [ ] Ubuntu / Debian 使用 `apt`
 - [ ] RHEL 系使用 `dnf`
 - [ ] 对不支持的系统给出明确退出信息
+- [ ] 当前暂不支持 CentOS 8，后续单独做适配
 
 ### 3. 基础 WireGuard 部署
 
