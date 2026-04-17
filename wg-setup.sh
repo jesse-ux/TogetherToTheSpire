@@ -55,9 +55,11 @@ detect_os() {
     . /etc/os-release
     OS_ID="${ID}"
     OS_NAME="${PRETTY_NAME:-${ID}}"
+    OS_VERSION="${VERSION_ID:-}"
   else
     OS_ID=""
     OS_NAME="未知"
+    OS_VERSION=""
   fi
 
   case "${OS_ID}" in
@@ -84,6 +86,9 @@ install_packages() {
       apt install -y -qq wireguard qrencode curl iptables
       ;;
     dnf)
+      if [[ "${OS_ID}" == "centos" && "${OS_VERSION%%.*}" == "8" ]]; then
+        configure_el8_mirrors
+      fi
       configure_epel_repo
       if ! command -v dnf >/dev/null 2>&1 && command -v yum >/dev/null 2>&1; then
         yum makecache -y --refresh
@@ -96,11 +101,61 @@ install_packages() {
   esac
 }
 
+configure_el8_mirrors() {
+  local repo_dir="/etc/yum.repos.d"
+  local backup_dir="${repo_dir}/backup-$(date +%Y%m%d%H%M%S)"
+  local repo_file="${repo_dir}/CentOS-aliyun.repo"
+
+  mkdir -p "${backup_dir}"
+
+  shopt -s nullglob
+  for f in "${repo_dir}"/CentOS-*.repo; do
+    mv "${f}" "${backup_dir}/"
+  done
+  shopt -u nullglob
+
+  cat > "${repo_file}" <<'EOF'
+[BaseOS]
+name=CentOS Linux 8 - BaseOS
+baseurl=https://mirrors.aliyun.com/centos/8/BaseOS/$basearch/os/
+enabled=1
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-centosofficial
+skip_if_unavailable=1
+
+[AppStream]
+name=CentOS Linux 8 - AppStream
+baseurl=https://mirrors.aliyun.com/centos/8/AppStream/$basearch/os/
+enabled=1
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-centosofficial
+skip_if_unavailable=1
+
+[extras]
+name=CentOS Linux 8 - Extras
+baseurl=https://mirrors.aliyun.com/centos/8/extras/$basearch/os/
+enabled=1
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-centosofficial
+skip_if_unavailable=1
+
+[PowerTools]
+name=CentOS Linux 8 - PowerTools
+baseurl=https://mirrors.aliyun.com/centos/8/PowerTools/$basearch/os/
+enabled=1
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-centosofficial
+skip_if_unavailable=1
+EOF
+}
+
 configure_epel_repo() {
   local repo_file="/etc/yum.repos.d/epel.repo"
 
   require_cmd rpm
   rpm --import https://mirrors.aliyun.com/epel/RPM-GPG-KEY-EPEL-8 >/dev/null 2>&1 || true
+
+  rm -f /etc/yum.repos.d/epel*.repo
 
   cat > "${repo_file}" <<'EOF'
 [epel]
