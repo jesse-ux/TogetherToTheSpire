@@ -617,7 +617,7 @@ check_handshakes() {
 
 wait_for_all_handshakes() {
   local listen_port="$1"
-  local timeout="${2:-90}"
+  local timeout="${2:-0}"
   shift 2
   local -a peer_pubkeys=("$@")
   local total="${#peer_pubkeys[@]}"
@@ -626,9 +626,13 @@ wait_for_all_handshakes() {
 
   echo
   info "正在等待所有玩家连接 WireGuard..."
-  echo "  （最长等待 ${timeout} 秒，期间会持续检测）"
+  if [[ "${timeout}" -gt 0 ]]; then
+    echo "  （最长等待 ${timeout} 秒，期间会持续检测）"
+  else
+    echo "  （会一直等待，直到所有玩家都连接完成）"
+  fi
 
-  while (( elapsed < timeout )); do
+  while :; do
     local connected=0
     local key
     for key in "${peer_pubkeys[@]}"; do
@@ -646,18 +650,24 @@ wait_for_all_handshakes() {
       return 0
     fi
 
-    printf "\r  当前连接: %d/%d，剩余 %ds" "${connected}" "${total}" "$((timeout - elapsed))"
+    if [[ "${timeout}" -gt 0 && "${elapsed}" -ge "${timeout}" ]]; then
+      echo
+      warn "等待超时，尚未检测到全部玩家连接"
+      echo "  请确认："
+      echo "  1. 玩家是否已扫码导入并打开 WireGuard"
+      echo "  2. 云服务器安全组是否放行 UDP ${listen_port}"
+      echo "  3. 客户端网络是否正常"
+      return 1
+    fi
+
+    if [[ "${timeout}" -gt 0 ]]; then
+      printf "\r  当前连接: %d/%d，剩余 %ds" "${connected}" "${total}" "$((timeout - elapsed))"
+    else
+      printf "\r  当前连接: %d/%d，等待所有玩家上线..." "${connected}" "${total}"
+    fi
     sleep "${interval}"
     elapsed=$((elapsed + interval))
   done
-
-  echo
-  warn "等待超时，尚未检测到全部玩家连接"
-  echo "  请确认："
-  echo "  1. 玩家是否已扫码导入并打开 WireGuard"
-  echo "  2. 云服务器安全组是否放行 UDP ${listen_port}"
-  echo "  3. 客户端网络是否正常"
-  return 1
 }
 
 # ── 联机说明 ──────────────────────────────────────────────
@@ -906,9 +916,7 @@ setup_flow() {
     fi
   done
 
-  if ! wait_for_all_handshakes "${WG_PORT}" 90 "${peer_pubkeys[@]}"; then
-    warn "本次未等到全部玩家上线，可以稍后用 status 再查看"
-  fi
+  wait_for_all_handshakes "${WG_PORT}" 0 "${peer_pubkeys[@]}"
 
   check_handshakes "${WG_PORT}" "${peer_pubkeys[@]}"
 
