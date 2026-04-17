@@ -44,7 +44,7 @@ require_cmd() {
 
 check_root() {
   if [[ "${EUID}" -ne 0 ]]; then
-    error "请用 sudo 运行脚本"
+    error "请用 sudo 运行，例如: sudo ./wg-setup.sh"
     exit 1
   fi
 }
@@ -71,16 +71,15 @@ detect_os() {
       PKG_MANAGER="dnf"
       ;;
     *)
-      error "不支持的系统: ${OS_NAME}"
-      echo "目前支持: Ubuntu/Debian/Rocky/AlmaLinux" >&2
+      error "当前系统不支持: ${OS_NAME}"
+      echo "目前仅支持: Ubuntu、Debian、Rocky Linux、AlmaLinux" >&2
       exit 1
       ;;
   esac
 
   if [[ "${OS_ID}" == "centos" && "${OS_VERSION%%.*}" == "8" ]]; then
-    error "当前版本暂不支持 CentOS 8"
-    echo "原因：CentOS 8 的 WireGuard 内核模块适配不稳定，后续会单独补 CentOS 8 支持。" >&2
-    echo "建议改用 Ubuntu/Debian/Rocky/AlmaLinux 后再运行脚本。" >&2
+    error "暂不支持 CentOS 8"
+    echo "CentOS 8 的 WireGuard 内核模块存在兼容问题，建议更换为 Ubuntu/Debian。" >&2
     exit 1
   fi
 }
@@ -200,12 +199,8 @@ prompt_listen_port() {
   local port_input port_value
 
   echo >/dev/tty
-  paint "${GOLD}" "  请手动输入 WireGuard 监听端口" >/dev/tty
-  paint "${CYAN}" "  端口范围: 1024-65535" >/dev/tty
-  paint "${ORANGE}" "  不能直接回车，必须输入一个端口号" >/dev/tty
-  paint "${WHITE}" "  示例: 51820、51821、60000" >/dev/tty
-  echo >/dev/tty
-  echo "  提示：请先确认你要使用的端口没有被占用，然后再输入下面这一行。" >/dev/tty
+  paint "${GOLD}" "  请输入 WireGuard 监听端口" >/dev/tty
+  paint "${CYAN}" "  范围 1024-65535，不知道填什么的话用 51820 就行" >/dev/tty
   echo >/dev/tty
 
   while true; do
@@ -246,11 +241,11 @@ check_wireguard_kernel_support() {
     return 0
   fi
 
-  error "当前内核不支持 WireGuard 模块，wg-quick 无法启动"
-  echo "请先处理下面任一项，然后重新运行 setup：" >&2
-  echo "  1. 安装支持 WireGuard 的内核模块（例如 kmod-wireguard / elrepo）" >&2
-  echo "  2. 升级到带 WireGuard 支持的内核" >&2
-  echo "  3. 更换到支持 WireGuard 的系统（如较新的 Ubuntu / Debian / Rocky / AlmaLinux）" >&2
+  error "当前内核不支持 WireGuard，无法启动服务"
+  echo "建议（任选其一）：" >&2
+  echo "  1. 安装内核模块: dnf install kmod-wireguard（RHEL 系）" >&2
+  echo "  2. 升级系统内核" >&2
+  echo "  3. 更换为 Ubuntu / Debian 等自带 WireGuard 支持的系统" >&2
   return 1
 }
 
@@ -461,7 +456,7 @@ show_qr_terminal() {
   local conf_file="$1"
   echo >/dev/tty
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo "  请使用 WireGuard 扫描下方二维码导入配置："
+  echo "  用 WireGuard 扫描下方二维码即可导入："
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo
   qrencode -t ANSIUTF8 < "${conf_file}" || true
@@ -476,22 +471,19 @@ wait_for_handshake() {
   local elapsed=0
 
   echo
-  if [[ "${timeout}" -gt 0 ]]; then
-    info "正在等待客户端连接，超时时间 ${timeout} 秒..."
+  if [[ “${timeout}” -gt 0 ]]; then
+    info “等待玩家连接中（最长 ${timeout} 秒）...”
   else
-    info "正在等待客户端连接，直到检测到握手成功为止..."
+    info “等待玩家连接中...”
   fi
 
   echo
-  echo "  手机端操作步骤："
-  echo "  1. 打开手机上的 WireGuard 软件"
-  echo "  2. 点击右上角「+」"
-  echo "  3. 选择「扫描二维码」"
-  echo "  4. 扫描当前终端里的二维码"
-  echo "  5. 随便输入一个名称保存配置"
-  echo "  6. 回到配置列表，打开这个名称右侧的开关"
-  echo "  7. 开关变成已启用后，才算真正握手成功"
-  echo "  8. 看到下面的“检测到客户端已连接”之后，才会继续往下走"
+  echo “  玩家操作步骤：”
+  echo “  1. 打开 WireGuard”
+  echo “  2. 点 + → 扫描二维码”
+  echo “  3. 对准终端里的二维码扫描”
+  echo “  4. 打开连接开关”
+  echo “  5. 连接成功后这里会自动检测到”
 
   while :; do
     if wg show "${WG_INTERFACE}" latest-handshakes | awk -v key="${peer_pubkey}" '
@@ -499,7 +491,7 @@ wait_for_handshake() {
       END { exit(found ? 0 : 1) }
     '; then
       echo
-      ok "检测到客户端已连接"
+      ok "玩家已连接"
       wg show "${WG_INTERFACE}" | awk -v key="${peer_pubkey}" '
         $1=="peer:" && $2==key { print; in_peer=1; next }
         $1=="peer:" && $2!=key { in_peer=0 }
@@ -510,11 +502,11 @@ wait_for_handshake() {
 
     if [[ "${timeout}" -gt 0 && "${elapsed}" -ge "${timeout}" ]]; then
       echo
-      warn "等待超时，尚未检测到客户端握手"
-      echo "  请确认："
-      echo "  1. 客户端是否已扫码导入配置"
-      echo "  2. 客户端是否已打开 WireGuard 隧道"
-      echo "  3. 云安全组是否放行 UDP ${listen_port}"
+      warn "等待超时，未检测到玩家连接"
+      echo "  排查清单："
+      echo "  1. 玩家是否已扫码并打开 WireGuard 连接"
+      echo "  2. 云服务器安全组是否放行 UDP ${listen_port}（最常见的原因）"
+      echo "  3. 玩家手机/电脑网络是否正常"
       return 1
     fi
 
@@ -592,7 +584,7 @@ show_peer_qr() {
   echo "  ${peer_name}  |  ${client_ip}"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo
-  echo "  请 ${peer_name} 用 WireGuard 扫描下方二维码："
+  echo "  请把手机递给 ${peer_name}，打开 WireGuard 扫码："
   echo
   qrencode -t ANSIUTF8 < "${conf_file}" || true
   echo
@@ -609,7 +601,7 @@ check_handshakes() {
   local total=${#peer_pubkeys[@]}
 
   echo
-  info "正在检测所有玩家的连接状态..."
+  info "正在检测所有玩家连接状态..."
 
   for i in "${!peer_pubkeys[@]}"; do
     local key="${peer_pubkeys[$i]}"
@@ -626,14 +618,14 @@ check_handshakes() {
 
   echo
   if [[ "${found}" -eq "${total}" ]]; then
-    ok "全部 ${total} 位玩家已连接，可以开始联机了！"
+    ok "全部 ${total} 位玩家已连接，可以开游戏了！"
   else
     warn "${found}/${total} 位玩家已连接"
     echo >/dev/tty
     echo "  未连接的玩家请检查："
-    echo "  1. 是否已扫码导入 WireGuard 并打开隧道"
+    echo "  1. WireGuard 是否已打开连接"
     echo "  2. 云服务器安全组是否放行 UDP ${listen_port}"
-    echo "  3. 手机/电脑网络是否正常"
+    echo "  3. 网络是否正常"
   fi
 }
 
@@ -647,11 +639,11 @@ wait_for_all_handshakes() {
   local elapsed=0
 
   echo
-  info "正在等待所有玩家连接 WireGuard..."
+  info "等待所有玩家连接..."
   if [[ "${timeout}" -gt 0 ]]; then
-    echo "  （最长等待 ${timeout} 秒，期间会持续检测）"
+    echo "  （最长等待 ${timeout} 秒）"
   else
-    echo "  （会一直等待，直到所有玩家都连接完成）"
+    echo "  （会一直等到所有人都连上）"
   fi
 
   while :; do
@@ -674,11 +666,11 @@ wait_for_all_handshakes() {
 
     if [[ "${timeout}" -gt 0 && "${elapsed}" -ge "${timeout}" ]]; then
       echo
-      warn "等待超时，尚未检测到全部玩家连接"
-      echo "  请确认："
-      echo "  1. 玩家是否已扫码导入并打开 WireGuard"
+      warn "等待超时，部分玩家未连接"
+      echo "  排查清单："
+      echo "  1. 玩家是否已打开 WireGuard 连接"
       echo "  2. 云服务器安全组是否放行 UDP ${listen_port}"
-      echo "  3. 客户端网络是否正常"
+      echo "  3. 玩家网络是否正常"
       return 1
     fi
 
@@ -705,42 +697,41 @@ generate_guide() {
 ║     TogetherToTheSpire 联机说明              ║
 ╚══════════════════════════════════════════════╝
 
-服务端信息：
+服务器信息：
   公网地址: ${public_ip}:${port}
   VPN 网段: ${prefix}.0/24
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-一、WireGuard 客户端下载
+第一步：安装 WireGuard 客户端
 
-  Windows:  Windows 10 / 11 / Server 2016 / 2019 / 2022 / 2025
-            v0.6.1 - Browse MSIs
-  macOS:    App Store - v1.0.16
-  Android:  将 APK 放到 assets/android/ 目录后再分发
-  iOS:      App Store - v1.0.16
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-二、导入配置
-
-  1. 打开 WireGuard 客户端
-  2. 点击 + 号，选择"扫描二维码"或"从文件导入"
-  3. 扫描终端上的二维码，或使用 ${CLIENT_DIR}/ 下的 .conf 文件
-  4. 导入后点击连接开关
+  Windows: https://www.wireguard.com/install/ (v0.6.1)
+  macOS:   App Store 搜索 WireGuard
+  iOS:     App Store 搜索 WireGuard
+  Android: 使用仓库内置的 APK
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-三、开始联机（杀戮尖塔）
+第二步：扫码导入配置
 
-  1. 确认所有人的 WireGuard 都已连接
-  2. 一个人打开杀戮尖塔，选择"联机" → "局域网游戏" → "创建房间"
-  3. 其他人打开杀戮尖塔，选择"联机" → "局域网游戏" → "输入房主 IP" → 加入
+  1. 打开 WireGuard
+  2. 点 + 号 → 扫描二维码（或从文件导入 ${CLIENT_DIR}/ 下的 .conf）
+  3. 扫码后打开连接开关
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-如果进入不了房间，请确认：
-  - 所有人的 WireGuard 隧道已打开（状态为活跃）
-  - 尝试在杀戮尖塔中手动输入房主的 VPN IP 地址加入
+第三步：开始联机
+
+  1. 确认所有人 WireGuard 都显示已连接
+  2. 房主打开《杀戮尖塔》→ 联机 → 局域网游戏 → 创建房间
+  3. 其他人打开《杀戮尖塔》→ 联机 → 局域网游戏 → 输入房主的 VPN IP
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+连不上的常见原因：
+  - WireGuard 连接开关没打开
+  - 云服务器安全组没放行 UDP ${port}
+  - 杀戮尖塔里用的是公网 IP 而不是 VPN IP
 
 EOF
 
@@ -754,24 +745,22 @@ print_guide_summary() {
 
   echo
   echo "╔══════════════════════════════════════════════╗"
-  echo "║          联机说明（直接照着做）              ║"
+  echo "║          接下来怎么做（照着走就行）          ║"
   echo "╚══════════════════════════════════════════════╝"
   echo
-  echo "  1. 打开 WireGuard 客户端"
-  echo "  2. 扫描上面的二维码，或导入 ${CLIENT_DIR}/ 下的 .conf 文件"
-  echo "  3. 确认所有人的 WireGuard 都显示为已连接"
-  echo "  4. 一个人进入《杀戮尖塔》"
-  echo "  5. 选择：联机 → 局域网游戏 → 创建房间"
-  echo "  6. 其他人选择：联机 → 局域网游戏 → 输入房主 IP"
+  echo "  1. 让朋友用 WireGuard 扫描上面的二维码（或导入 .conf 文件）"
+  echo "  2. 确认所有人 WireGuard 都显示已连接"
+  echo "  3. 房主打开《杀戮尖塔》→ 联机 → 局域网游戏 → 创建房间"
+  echo "  4. 其他人→ 联机 → 局域网游戏 → 输入房主的 VPN IP"
   echo
   echo "  服务器信息："
   echo "    公网地址: ${public_ip}:${port}"
   echo "    VPN 网段: ${prefix}.0/24"
   echo
-  echo "  如果连不上，请优先检查："
-  echo "    - WireGuard 是否已连接"
+  echo "  连不上？优先检查这三项："
+  echo "    - WireGuard 连接开关是否打开"
   echo "    - 云服务器安全组是否放行 UDP ${port}"
-  echo "    - 是否使用了正确的房主 VPN IP"
+  echo "    - 杀戮尖塔里填的是 VPN IP（不是公网 IP）"
   echo
 }
 
@@ -790,24 +779,24 @@ show_summary() {
   echo "║          部署完成                            ║"
   echo "╚══════════════════════════════════════════════╝"
   echo
-  echo "  服务端信息："
+  echo "  服务器信息："
   echo "    公网地址: ${public_ip}:${port}"
   echo "    VPN 网段: ${prefix}.0/24"
   echo "    配置文件: ${WG_CONF}"
   echo
   paint "${GOLD}" "╔══════════════════════════════════════════════╗"
-  paint "${GOLD}" "║          安全组放行提示（必须）              ║"
+  paint "${GOLD}" "║    !! 安全组放行（这一步不做就连不上 !!）    ║"
   paint "${GOLD}" "╚══════════════════════════════════════════════╝"
   echo
-  paint "${ORANGE}" "  ⚠ 请确认云服务器安全组已放行以下端口："
+  paint "${ORANGE}" "  请立刻去云服务器控制台，添加一条入方向规则："
   echo
-  paint "${WHITE}" "    UDP ${port}（WireGuard 通信端口，必须放行）"
+  paint "${WHITE}" "    协议: UDP    端口: ${port}    来源: 0.0.0.0/0"
   echo
-  paint "${CYAN}" "  各云厂商操作路径："
-  echo "    阿里云: 控制台 → 安全组 → 添加入方向规则 → UDP ${port}"
-  echo "    腾讯云: 控制台 → 安全组 → 入站规则 → 添加 UDP ${port}"
-  echo "    华为云: 安全组 → 入方向规则 → 添加 UDP ${port}"
-  echo "    AWS:    Security Groups → Inbound Rules → UDP ${port}"
+  paint "${CYAN}" "  找不到在哪？各厂商路径："
+  echo "    阿里云 → 安全组 → 入方向 → 添加规则 → UDP ${port}"
+  echo "    腾讯云 → 安全组 → 入站规则 → 添加规则 → UDP ${port}"
+  echo "    华为云 → 安全组 → 入方向规则 → 添加 → UDP ${port}"
+  echo "    AWS    → Security Groups → Inbound → UDP ${port}"
   echo
 }
 
@@ -820,16 +809,16 @@ setup_flow() {
 
   echo
   echo "╔══════════════════════════════════════════════╗"
-  echo "║   TogetherToTheSpire — 一键部署 WireGuard    ║"
+  echo "║   TogetherToTheSpire — 联机部署              ║"
   echo "╚══════════════════════════════════════════════╝"
   echo
 
   if [[ -f "${WG_CONF}" ]]; then
-    warn "检测到已有 WireGuard 配置: ${WG_CONF}"
+    warn "检测到已有 WireGuard 配置"
+    echo "  位置: ${WG_CONF}"
     echo
-    echo "  如果要重新部署，请先执行："
-    echo "    sudo wg-quick down ${WG_INTERFACE}"
-    echo "    sudo rm -rf ${WG_DIR}"
+    echo "  如需全新部署，请先手动执行："
+    echo "    sudo wg-quick down ${WG_INTERFACE} && sudo rm -rf ${WG_DIR}"
     echo
     read -r -p "  是否覆盖现有配置？(y/N) " confirm </dev/tty
     if [[ "${confirm}" != "y" && "${confirm}" != "Y" ]]; then
@@ -899,21 +888,26 @@ setup_flow() {
 
   show_summary "${public_ip}" "${WG_PORT}"
 
-  echo "  几位朋友要一起联机？（输入 1-5 的数字）"
+  echo
+  echo "  几个人一起联机？（1-5，回车默认 2）"
   local peer_count
   while true; do
     read -r -p "  > " peer_count </dev/tty
+    if [[ -z "${peer_count}" ]]; then
+      peer_count=2
+      break
+    fi
     if [[ "${peer_count}" =~ ^[1-5]$ ]]; then
       break
     fi
-    warn "请输入 1 到 5 之间的数字"
+    warn "请输入 1 到 5 的数字"
   done
 
   echo
-  ok "好的，为 ${peer_count} 位玩家生成配置"
+  ok "为 ${peer_count} 位玩家生成配置"
   echo
 
-  local -a default_names=("战士" "猎宝" "亡灵" "机器人" "储君" "观者大人")
+  local -a default_names=("战士" "猎宝" "亡灵" "鸡煲" "储君" "观者大人")
   local -a peer_names=()
   local -a peer_pubkeys=()
   local -a peer_ips=()
@@ -925,7 +919,7 @@ setup_flow() {
   for (( i = 0; i < peer_count; i++ )); do
     local idx=$((i + 1))
     local default_name="${default_names[$i]:-player${idx}}"
-    echo "  给玩家 ${idx} 取个名字（回车默认: ${default_name}）"
+    echo "  玩家 ${idx} 叫什么？（回车默认: ${default_name}）"
     local name
     read -r -p "  > " name </dev/tty
     name="${name:-${default_name}}"
@@ -956,15 +950,15 @@ setup_flow() {
     ok "WireGuard 已重启"
 
     echo
-    info "请 ${name} 立即扫码导入配置"
+    info "轮到 ${name} 了，请把手机递过去扫码"
     show_peer_qr "${name}" "${client_ip}"
 
     if ! wait_for_handshake "${pubkey}" "${WG_PORT}" 0 "${POLL_INTERVAL}"; then
-      warn "当前 peer 未握手成功，先停在这里等待"
+      warn "${name} 连接失败，先停在这里"
       return 0
     fi
 
-    ok "${name} 已连接，继续下一位"
+    ok "${name} 搞定了，下一位"
     echo
   done
 
@@ -997,17 +991,17 @@ setup_flow() {
 
   local peer_total
   peer_total="$(grep -c "^\# peer:" "${WG_CONF}" 2>/dev/null || echo 0)"
-  echo "  已配置 peer 数量: ${peer_total}"
+  echo "  已配置玩家: ${peer_total}"
 
   echo
   echo "╔══════════════════════════════════════════════╗"
-  echo "║          全部完成！                          ║"
+  echo "║          全部搞定，开游戏吧！                ║"
   echo "╚══════════════════════════════════════════════╝"
   echo
-  echo "  所有配置文件在: ${CLIENT_DIR}/"
+  echo "  配置文件在: ${CLIENT_DIR}/"
   echo
-  echo "  后续管理命令: sudo ./wg-setup.sh [setup|add-peer|remove-peer|status|remove-env]"
-  echo "  或者直接使用: sudo together [add-peer|remove-peer|status|remove-env]"
+  echo "  下次管理: sudo ./wg-setup.sh [add-peer|remove-peer|status]"
+  echo "  或:       sudo together [add-peer|remove-peer|status]"
   echo
 }
 
@@ -1064,19 +1058,18 @@ show_status() {
 
   echo
   paint "${GOLD}" "╔══════════════════════════════════════════════╗"
-  paint "${GOLD}" "║          WireGuard 状态                      ║"
+  paint "${GOLD}" "║          联机状态                            ║"
   paint "${GOLD}" "╚══════════════════════════════════════════════╝"
   echo
-  printf "  %b服务端信息：%b\n" "${CYAN}" "${RESET}"
-  printf "    %b配置文件:%b %s\n" "${WHITE}" "${RESET}" "${WG_CONF}"
+  printf "  %b服务器信息：%b\n" "${CYAN}" "${RESET}"
   printf "    %bVPN 网段:%b %s\n" "${WHITE}" "${RESET}" "${prefix}.0/24"
   printf "    %b监听端口:%b %s\n" "${WHITE}" "${RESET}" "${port}"
   if [[ -n "${public_ip}" ]]; then
     printf "    %b公网地址:%b %s:%s\n" "${WHITE}" "${RESET}" "${public_ip}" "${port}"
   fi
-  printf "    %b已配置 peer 数量:%b %s\n" "${WHITE}" "${RESET}" "${peer_total}"
+  printf "    %b已配置玩家:%b %s\n" "${WHITE}" "${RESET}" "${peer_total}"
   echo
-  printf "  %b服务状态：%b\n" "${PURPLE}" "${RESET}"
+  printf "  %b运行状态：%b\n" "${PURPLE}" "${RESET}"
   if systemctl is-active --quiet "wg-quick@${WG_INTERFACE}" 2>/dev/null; then
     service_state="运行中"
     printf "    %b●%b wg-quick@%s %b运行中%b\n" "${CYAN}" "${RESET}" "${WG_INTERFACE}" "${CYAN}" "${RESET}"
@@ -1085,7 +1078,7 @@ show_status() {
     printf "    %b●%b wg-quick@%s %b未运行%b\n" "${ORANGE}" "${RESET}" "${WG_INTERFACE}" "${ORANGE}" "${RESET}"
   fi
   echo
-  printf "  %bPeer 列表：%b\n" "${CYAN}" "${RESET}"
+  printf "  %b玩家列表：%b\n" "${CYAN}" "${RESET}"
   if [[ "${peer_total}" -gt 0 ]]; then
     printf "    %b%-18s %-16s %-20s %s%b\n" "${PURPLE}" "名字" "VPN IP" "最近握手" "状态" "${RESET}"
     printf "    %b%-18s %-16s %-20s %s%b\n" "${GRAY}" "------------------" "----------------" "--------------------" "------" "${RESET}"
@@ -1109,11 +1102,11 @@ show_status() {
   fi
 
   echo
-  printf "  %b最近握手原始数据：%b\n" "${PURPLE}" "${RESET}"
+  printf "  %b握手详情：%b\n" "${PURPLE}" "${RESET}"
   if wg show "${WG_INTERFACE}" latest-handshakes 2>/dev/null | grep -q '.'; then
     wg show "${WG_INTERFACE}" latest-handshakes
   else
-    printf "    %b当前还没有任何握手记录%b\n" "${GRAY}" "${RESET}"
+    printf "    %b暂无握手记录%b\n" "${GRAY}" "${RESET}"
   fi
 }
 
@@ -1129,7 +1122,7 @@ add_peer_flow() {
   local wait_timeout="${2:-120}"
 
   if [[ -z "${peer_name}" ]]; then
-    read -r -p "请输入玩家名字: " peer_name </dev/tty
+    read -r -p "新玩家叫什么名字: " peer_name </dev/tty
   fi
 
   if [[ -z "${peer_name}" ]]; then
@@ -1166,7 +1159,7 @@ add_peer_flow() {
   ok "配置已生成: ${conf_file}"
   show_qr_terminal "${conf_file}"
   if ! wait_for_handshake "${client_public_key}" "${port}" "${wait_timeout}" "${POLL_INTERVAL}"; then
-    warn "本次未检测到握手，稍后可在 status 里继续查看"
+    warn "未检测到连接，可以稍后用 sudo ./wg-setup.sh status 查看"
     return 0
   fi
 }
@@ -1179,7 +1172,7 @@ remove_peer_flow() {
 
   local peer_name="${1:-}"
   if [[ -z "${peer_name}" ]]; then
-    read -r -p "请输入要删除的玩家名字: " peer_name </dev/tty
+    read -r -p "要删除哪位玩家: " peer_name </dev/tty
   fi
 
   if [[ -z "${peer_name}" ]]; then
@@ -1192,7 +1185,7 @@ remove_peer_flow() {
     exit 1
   fi
 
-  warn "即将删除 peer「${peer_name}」"
+  warn "即将删除「${peer_name}」的所有配置"
   read -r -p "确认删除请输入 yes: " confirm </dev/tty
   if [[ "${confirm}" != "yes" ]]; then
     info "已取消删除"
@@ -1209,7 +1202,7 @@ remove_peer_flow() {
     echo "  journalctl -u wg-quick@${WG_INTERFACE} -xe --no-pager" >&2
     return 0
   fi
-  ok "已删除 peer「${peer_name}」并重启 WireGuard"
+  ok "已删除「${peer_name}」并重启 WireGuard"
 }
 
 remove_env_flow() {
@@ -1221,10 +1214,9 @@ remove_env_flow() {
     return 0
   fi
 
-  warn "此操作会删除 WireGuard 服务端配置并停止服务"
-  echo "  目标: ${WG_CONF}"
-  echo "  目录: ${WG_DIR}"
-  read -r -p "确认删除请输入 DELETE: " confirm </dev/tty
+  warn "此操作会停止 WireGuard 服务并删除所有配置"
+  echo "  将删除: ${WG_CONF}、${WG_DIR}、${CLIENT_DIR}"
+  read -r -p "确认全部删除请输入 DELETE: " confirm </dev/tty
   if [[ "${confirm}" != "DELETE" ]]; then
     info "已取消删除"
     exit 0
@@ -1238,7 +1230,7 @@ remove_env_flow() {
   sysctl -w net.ipv4.ip_forward=0 >/dev/null 2>&1 || true
   rm -rf "${CLIENT_DIR}" 2>/dev/null || true
 
-  ok "已删除环境相关文件"
+  ok "WireGuard 环境已清除"
 }
 
 install_entrypoint() {
@@ -1247,7 +1239,7 @@ install_entrypoint() {
   cat > "${target}" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
-exec bash -c 'curl -fsSL https://raw.githubusercontent.com/jesse-ux/TogetherToTheSpire/main/wg-setup.sh | bash -s -- "$@"' bash "$@"
+exec bash -c 'curl -fsSL https://gitee.com/jesse-chen1/TogetherToTheSpire/raw/main/wg-setup.sh | bash -s -- "$@"' bash "$@"
 EOF
 
   chmod +x "${target}"
@@ -1295,12 +1287,12 @@ show_menu() {
     else
       service_state="检测到环境，但服务未运行"
     fi
-    recommendation="可以添加 peer、查看状态或删除 peer"
+    recommendation="可以添加新玩家、查看状态或删除玩家"
   fi
 
   echo
   paint "${GOLD}" "╔══════════════════════════════════════════════╗"
-  paint "${GOLD}" "║   TogetherToTheSpire — 控制菜单             ║"
+  paint "${GOLD}" "║   TogetherToTheSpire — 联机控制台           ║"
   paint "${GOLD}" "╚══════════════════════════════════════════════╝"
   echo
   printf "  %b当前系统环境:%b %b%s (%s)%b\n" "${CYAN}" "${RESET}" "${WHITE}" "${system_name}" "${system_id}" "${RESET}"
@@ -1321,15 +1313,15 @@ show_menu() {
   echo
   printf "  %b1.%b %s\n" "${GOLD}" "${RESET}" "部署环境"
   if [[ "${env_exists}" == "yes" ]]; then
-    printf "  %b2.%b %s\n" "${CYAN}" "${RESET}" "添加 peer"
-    printf "  %b3.%b %s\n" "${PURPLE}" "${RESET}" "删除 peer"
-    printf "  %b4.%b %s\n" "${ORANGE}" "${RESET}" "查看状态"
+    printf "  %b2.%b %s\n" "${CYAN}" "${RESET}" "添加玩家"
+    printf "  %b3.%b %s\n" "${PURPLE}" "${RESET}" "删除玩家"
+    printf "  %b4.%b %s\n" "${ORANGE}" "${RESET}" "查看连接状态"
     printf "  %b5.%b %s\n" "${GOLD}" "${RESET}" "删除环境"
   else
-    printf "  %b2.%b %s\n" "${GRAY}" "${RESET}" "添加 peer（未部署，暂不可用）"
-    printf "  %b3.%b %s\n" "${GRAY}" "${RESET}" "删除 peer（未部署，暂不可用）"
-    printf "  %b4.%b %s\n" "${GRAY}" "${RESET}" "查看状态（未部署，暂不可用）"
-    printf "  %b5.%b %s\n" "${GRAY}" "${RESET}" "删除环境（未部署，暂不可用）"
+    printf "  %b2.%b %s\n" "${GRAY}" "${RESET}" "添加玩家（需先部署）"
+    printf "  %b3.%b %s\n" "${GRAY}" "${RESET}" "删除玩家（需先部署）"
+    printf "  %b4.%b %s\n" "${GRAY}" "${RESET}" "查看状态（需先部署）"
+    printf "  %b5.%b %s\n" "${GRAY}" "${RESET}" "删除环境（需先部署）"
   fi
   printf "  %b0.%b %s\n" "${WHITE}" "${RESET}" "退出"
   echo
@@ -1345,28 +1337,28 @@ interactive_menu() {
         if [[ -f "${WG_CONF}" ]]; then
           add_peer_flow
         else
-          warn "当前没有检测到已部署环境，请先选择 1 部署环境"
+          warn "还没有部署环境，请先选 1"
         fi
         ;;
       3)
         if [[ -f "${WG_CONF}" ]]; then
           remove_peer_flow
         else
-          warn "当前没有检测到已部署环境，请先选择 1 部署环境"
+          warn "还没有部署环境，请先选 1"
         fi
         ;;
       4)
         if [[ -f "${WG_CONF}" ]]; then
           show_status
         else
-          warn "当前没有检测到已部署环境，请先选择 1 部署环境"
+          warn "还没有部署环境，请先选 1"
         fi
         ;;
       5)
         if [[ -f "${WG_CONF}" ]]; then
           remove_env_flow
         else
-          warn "当前没有检测到已部署环境，无需删除"
+          warn "还没有部署环境，无需删除"
         fi
         ;;
       0|q|Q) exit 0 ;;
@@ -1402,14 +1394,14 @@ main() {
       ;;
     help|-h|--help)
       echo "用法: sudo ./wg-setup.sh [setup|add-peer|remove-peer|status|remove-env]"
-      echo "不带参数时进入交互菜单"
+      echo "不带参数进入交互菜单"
       ;;
     "")
       interactive_menu
       ;;
     *)
       error "未知命令: ${command}"
-      echo "可用命令: setup, add-peer, remove-peer, status, remove-env" >&2
+      echo "可用命令: setup, add-peer, remove-peer, status, remove-env"
       exit 1
       ;;
   esac
