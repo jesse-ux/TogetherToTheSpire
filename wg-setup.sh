@@ -475,9 +475,13 @@ wait_for_handshake() {
   local elapsed=0
 
   echo
-  info "正在等待客户端连接，超时时间 ${timeout} 秒..."
+  if [[ "${timeout}" -gt 0 ]]; then
+    info "正在等待客户端连接，超时时间 ${timeout} 秒..."
+  else
+    info "正在等待客户端连接，直到检测到握手成功为止..."
+  fi
 
-  while (( elapsed < timeout )); do
+  while :; do
     if wg show "${WG_INTERFACE}" latest-handshakes | awk -v key="${peer_pubkey}" '
       $1==key && $2 > 0 { found=1 }
       END { exit(found ? 0 : 1) }
@@ -492,18 +496,24 @@ wait_for_handshake() {
       return 0
     fi
 
+    if [[ "${timeout}" -gt 0 && "${elapsed}" -ge "${timeout}" ]]; then
+      echo
+      warn "等待超时，尚未检测到客户端握手"
+      echo "  请确认："
+      echo "  1. 客户端是否已扫码导入配置"
+      echo "  2. 客户端是否已打开 WireGuard 隧道"
+      echo "  3. 云安全组是否放行 UDP ${listen_port}"
+      return 1
+    fi
+
     sleep "${interval}"
     elapsed=$((elapsed + interval))
-    printf "\r等待中... %ds/%ds" "${elapsed}" "${timeout}"
+    if [[ "${timeout}" -gt 0 ]]; then
+      printf "\r等待中... %ds/%ds" "${elapsed}" "${timeout}"
+    else
+      printf "\r等待中... %ds" "${elapsed}"
+    fi
   done
-
-  echo
-  warn "等待超时，尚未检测到客户端握手"
-  echo "  请确认："
-  echo "  1. 客户端是否已扫码导入配置"
-  echo "  2. 客户端是否已打开 WireGuard 隧道"
-  echo "  3. 云安全组是否放行 UDP ${listen_port}"
-  return 1
 }
 
 add_peer() {
@@ -891,32 +901,27 @@ setup_flow() {
     peer_pubkeys+=("${pubkey}")
     peer_ips+=("${client_ip}")
     ok "${name} (${client_ip}) → ${CLIENT_DIR}/${name}.conf"
-  done
-
-  info "重启 WireGuard 使配置生效..."
-  if ! restart_wg; then
-    error "WireGuard 重启失败，请先查看系统日志"
-    echo "  systemctl status wg-quick@${WG_INTERFACE} -l --no-pager" >&2
-    echo "  journalctl -u wg-quick@${WG_INTERFACE} -xe --no-pager" >&2
-    return 1
-  fi
-  ok "WireGuard 已重启"
-
-  echo
-  info "接下来请朋友们依次扫描二维码（每次一人）"
-  for (( i = 0; i < peer_count; i++ )); do
-    local name="${peer_names[$i]}"
-    local peer_ip="${peer_ips[$i]}"
-
-    show_peer_qr "${name}" "${peer_ip}"
-
-    if (( i < peer_count - 1 )); then
-      echo
-      read -r -p "  ${name} 扫码完成后按回车继续... " _ </dev/tty
+    info "重启 WireGuard 使配置生效..."
+    if ! restart_wg; then
+      error "WireGuard 重启失败，请先查看系统日志"
+      echo "  systemctl status wg-quick@${WG_INTERFACE} -l --no-pager" >&2
+      echo "  journalctl -u wg-quick@${WG_INTERFACE} -xe --no-pager" >&2
+      return 1
     fi
-  done
+    ok "WireGuard 已重启"
 
-  wait_for_all_handshakes "${WG_PORT}" 0 "${peer_pubkeys[@]}"
+    echo
+    info "请 ${name} 立即扫码导入配置"
+    show_peer_qr "${name}" "${client_ip}"
+
+    if ! wait_for_handshake "${pubkey}" "${WG_PORT}" 0 "${POLL_INTERVAL}"; then
+      warn "当前 peer 未握手成功，先停在这里等待"
+      return 0
+    fi
+
+    ok "${name} 已连接，继续下一位"
+    echo
+  done
 
   check_handshakes "${WG_PORT}" "${peer_pubkeys[@]}"
 
