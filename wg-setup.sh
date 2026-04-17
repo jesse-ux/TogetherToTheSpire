@@ -182,6 +182,21 @@ detect_default_nic() {
   ip route | awk '/default/ {print $5; exit}'
 }
 
+check_wireguard_kernel_support() {
+  require_cmd modprobe
+
+  if modprobe wireguard >/dev/null 2>&1; then
+    return 0
+  fi
+
+  error "当前内核不支持 WireGuard 模块，wg-quick 无法启动"
+  echo "请先处理下面任一项，然后重新运行 setup：" >&2
+  echo "  1. 安装支持 WireGuard 的内核模块（例如 kmod-wireguard / elrepo）" >&2
+  echo "  2. 升级到带 WireGuard 支持的内核" >&2
+  echo "  3. 更换到支持 WireGuard 的系统（如较新的 Ubuntu / Debian / Rocky / AlmaLinux）" >&2
+  return 1
+}
+
 get_public_ip() {
   local ip=""
   ip="$(curl -4 -s --max-time 5 ifconfig.me 2>/dev/null || true)"
@@ -231,6 +246,10 @@ EOF
 
 start_wg() {
   systemctl enable "wg-quick@${WG_INTERFACE}" >/dev/null 2>&1
+  systemctl restart "wg-quick@${WG_INTERFACE}"
+}
+
+restart_wg() {
   systemctl restart "wg-quick@${WG_INTERFACE}"
 }
 
@@ -669,6 +688,13 @@ setup_flow() {
   install_packages
   ok "WireGuard 安装完成"
 
+  info "检查内核对 WireGuard 的支持..."
+  if ! check_wireguard_kernel_support; then
+    warn "部署流程已中止，等待你修复内核模块后重试"
+    return 0
+  fi
+  ok "WireGuard 内核模块可用"
+
   info "开启 IP 转发..."
   enable_ip_forward
   ok "IP 转发已开启"
@@ -681,7 +707,13 @@ setup_flow() {
   create_wg_conf "${WG_ADDRESS}" "${WG_PORT}" "${nic}"
 
   info "启动 WireGuard..."
-  start_wg
+  if ! start_wg; then
+    error "WireGuard 启动失败，请先查看系统日志"
+    echo "  systemctl status wg-quick@${WG_INTERFACE} -l --no-pager" >&2
+    echo "  journalctl -u wg-quick@${WG_INTERFACE} -xe --no-pager" >&2
+    warn "部署流程已中止，等待你修复问题后重试"
+    return 0
+  fi
   ok "WireGuard 已启动并设置开机自启"
 
   info "检查防火墙..."
@@ -745,7 +777,12 @@ setup_flow() {
   done
 
   info "重启 WireGuard 使配置生效..."
-  systemctl restart "wg-quick@${WG_INTERFACE}"
+  if ! restart_wg; then
+    error "WireGuard 重启失败，请先查看系统日志"
+    echo "  systemctl status wg-quick@${WG_INTERFACE} -l --no-pager" >&2
+    echo "  journalctl -u wg-quick@${WG_INTERFACE} -xe --no-pager" >&2
+    return 1
+  fi
   ok "WireGuard 已重启"
 
   echo
@@ -954,11 +991,19 @@ add_peer_flow() {
   conf_file="${CLIENT_DIR}/${peer_name}.conf"
 
   info "重启 WireGuard ..."
-  restart_wg
+  if ! restart_wg; then
+    error "WireGuard 重启失败，请先查看系统日志"
+    echo "  systemctl status wg-quick@${WG_INTERFACE} -l --no-pager" >&2
+    echo "  journalctl -u wg-quick@${WG_INTERFACE} -xe --no-pager" >&2
+    return 0
+  fi
 
   ok "配置已生成: ${conf_file}"
   show_qr_terminal "${conf_file}"
-  wait_for_handshake "${client_public_key}" "${port}" "${wait_timeout}" "${POLL_INTERVAL}"
+  if ! wait_for_handshake "${client_public_key}" "${port}" "${wait_timeout}" "${POLL_INTERVAL}"; then
+    warn "本次未检测到握手，稍后可在 status 里继续查看"
+    return 0
+  fi
 }
 
 remove_peer_flow() {
@@ -993,7 +1038,12 @@ remove_peer_flow() {
   remove_peer_from_server_config "${peer_name}"
   remove_peer_artifacts "${peer_name}"
 
-  systemctl restart "wg-quick@${WG_INTERFACE}"
+  if ! systemctl restart "wg-quick@${WG_INTERFACE}"; then
+    error "WireGuard 重启失败，请先查看系统日志"
+    echo "  systemctl status wg-quick@${WG_INTERFACE} -l --no-pager" >&2
+    echo "  journalctl -u wg-quick@${WG_INTERFACE} -xe --no-pager" >&2
+    return 0
+  fi
   ok "已删除 peer「${peer_name}」并重启 WireGuard"
 }
 
