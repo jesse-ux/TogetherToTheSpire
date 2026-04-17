@@ -11,6 +11,7 @@ WG_DIR="/etc/wireguard"
 SYSCTL_FILE="/etc/sysctl.d/99-wireguard.conf"
 WG_ADDRESS="10.66.66.1/24"
 WG_PORT=""
+POLL_INTERVAL="2"
 CLIENT_DIR="${HOME}/wg-clients"
 
 # ── 工具函数 ──────────────────────────────────────────────
