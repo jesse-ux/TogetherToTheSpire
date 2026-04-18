@@ -471,19 +471,19 @@ wait_for_handshake() {
   local elapsed=0
 
   echo
-  if [[ “${timeout}” -gt 0 ]]; then
-    info “等待玩家连接中（最长 ${timeout} 秒）...”
+  if [[ "${timeout}" -gt 0 ]]; then
+    info "等待玩家连接中（最长 ${timeout} 秒）..."
   else
-    info “等待玩家连接中...”
+    info "等待玩家连接中..."
   fi
 
   echo
-  echo “  玩家操作步骤：”
-  echo “  1. 打开 WireGuard”
-  echo “  2. 点 + → 扫描二维码”
-  echo “  3. 对准终端里的二维码扫描”
-  echo “  4. 打开连接开关”
-  echo “  5. 连接成功后这里会自动检测到”
+  echo "  玩家操作步骤："
+  echo "  1. 打开 WireGuard"
+  echo "  2. 点 + → 扫描二维码"
+  echo "  3. 对准终端里的二维码扫描"
+  echo "  4. 打开连接开关"
+  echo "  5. 连接成功后这里会自动检测到"
 
   while :; do
     if wg show "${WG_INTERFACE}" latest-handshakes | awk -v key="${peer_pubkey}" '
